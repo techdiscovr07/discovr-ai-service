@@ -58,7 +58,12 @@ class LLMService:
             payload["response_format"] = response_format
         
         response = await self.client.post("/chat/completions", json=payload)
-        response.raise_for_status()
+        import httpx
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            print(f"OpenRouter API Error RESPONSE: {e.response.text}")
+            raise e
         
         data = response.json()
         content = data["choices"][0]["message"]["content"]

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     
     # Service Configuration
     port: int = int(os.getenv("PORT", "8000"))
-    api_key: Optional[str] = os.getenv("AI_SERVICE_API_KEY")  # For auth with Go backend
+    ai_service_api_key: Optional[str] = None  # For auth with Go backend
     
     # Video Processing
     max_video_duration_seconds: int = 300  # 5 minutes
@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
+        protected_namespaces = ('settings_',)
 
 
 settings = Settings()

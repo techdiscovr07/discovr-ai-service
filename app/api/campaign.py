@@ -1,6 +1,7 @@
 """
 Campaign AI API endpoints
 """
+from typing import Optional, List, Dict
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -14,7 +15,15 @@ class CampaignAnalysisRequest(BaseModel):
     description: str
     target_audience: str
     goals: str
-    brand_name: str | None = None
+    brand_name: Optional[str] = None
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    competitor_urls: Optional[List[str]] = []
 
 
 @router.post("/analyze")
@@ -27,6 +36,19 @@ async def analyze_campaign(request: CampaignAnalysisRequest):
             target_audience=request.target_audience,
             goals=request.goals,
             brand_name=request.brand_name,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/chat")
+async def chat_strategist(request: ChatRequest):
+    """Chat with the Strategist AI"""
+    try:
+        messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        result = await campaign_ai.chat_strategist(
+            messages=messages,
+            competitor_urls=request.competitor_urls,
         )
         return result
     except Exception as e:
