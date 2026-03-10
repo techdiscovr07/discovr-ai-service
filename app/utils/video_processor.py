@@ -2,12 +2,12 @@
 Video processing utilities
 """
 import os
+import json
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import httpx
-from moviepy.editor import VideoFileClip
 
 from app.config import settings
 
@@ -41,24 +41,35 @@ class VideoProcessor:
     async def extract_key_frames(self, video_path: str, num_frames: int = 5) -> List[str]:
         """Extract key frames from video"""
         try:
-            clip = VideoFileClip(video_path)
-            duration = clip.duration
-            
+            metadata = await self.get_metadata(video_path)
+            duration = float(metadata.get("duration", 0))
             if duration > self.max_duration:
                 raise ValueError(f"Video exceeds max duration of {self.max_duration}s")
-            
+            if duration <= 0:
+                return []
+
             # Extract frames at intervals
             frame_times = [duration * i / (num_frames + 1) for i in range(1, num_frames + 1)]
             frames = []
-            
+
             for t in frame_times:
-                frame = clip.get_frame(t)
-                # Save frame as image (for vision model analysis)
                 frame_path = self.temp_dir / f"frame_{t:.1f}.jpg"
-                # Use PIL or opencv to save frame
-                frames.append(str(frame_path))
-            
-            clip.close()
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-ss", str(t),
+                        "-i", video_path,
+                        "-frames:v", "1",
+                        "-q:v", "2",
+                        "-y",
+                        str(frame_path),
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+                if frame_path.exists():
+                    frames.append(str(frame_path))
+
             return frames
         except Exception as e:
             print(f"Error extracting frames: {e}")
@@ -96,16 +107,31 @@ class VideoProcessor:
     async def get_metadata(self, video_path: str) -> Dict:
         """Get video metadata"""
         try:
-            clip = VideoFileClip(video_path)
-            metadata = {
-                "duration": clip.duration,
-                "fps": clip.fps,
-                "width": clip.w,
-                "height": clip.h,
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v", "error",
+                    "-print_format", "json",
+                    "-show_streams",
+                    "-show_format",
+                    video_path,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            info = json.loads(result.stdout or "{}")
+            video_stream = next(
+                (s for s in info.get("streams", []) if s.get("codec_type") == "video"),
+                {},
+            )
+            return {
+                "duration": float(info.get("format", {}).get("duration", 0) or 0),
+                "fps": video_stream.get("r_frame_rate", "0/1"),
+                "width": int(video_stream.get("width", 0) or 0),
+                "height": int(video_stream.get("height", 0) or 0),
                 "size": os.path.getsize(video_path),
             }
-            clip.close()
-            return metadata
         except Exception as e:
             print(f"Error getting metadata: {e}")
             return {}
