@@ -1,11 +1,11 @@
 """
 Discovr AI Service - FastAPI application
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import campaign, script, video
-from app.config import settings
+from app.api import campaign, script, video, tasks, helper, brand_safety
 
 app = FastAPI(
     title="Discovr AI Service",
@@ -26,6 +26,9 @@ app.add_middleware(
 app.include_router(campaign.router, prefix="/ai/campaign", tags=["campaign"])
 app.include_router(script.router, prefix="/ai/script", tags=["script"])
 app.include_router(video.router, prefix="/ai/video", tags=["video"])
+app.include_router(brand_safety.router, prefix="/ai/brand_safety", tags=["brand_safety"])
+app.include_router(helper.router, prefix="/ai/helper", tags=["helper"])
+app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 
 
 @app.get("/health")
@@ -47,4 +50,5 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
