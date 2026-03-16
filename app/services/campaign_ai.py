@@ -1,7 +1,12 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
+import asyncio
 import json
 
+from app.celery_app import celery_app
 from app.services.llm_service import llm_service
+
+
+from app.utils.prompt_templates import CAMPAIGN_STRATEGIST_PROMPT, SCRIPT_REVIEW_PROMPT
 
 
 class CampaignAI:
@@ -191,3 +196,95 @@ class CampaignAI:
             result["chat_reply"] = "Strategy playbook generated successfully."
 
         return result
+
+    async def analyze_campaign(
+        self,
+        campaign_name: str,
+        description: str,
+        target_audience: str,
+        goals: str,
+        brand_name: str,
+        target_language: str = "English",
+        target_platforms: List[str] = ["Instagram Reels"],
+        cultural_context: Optional[str] = None,
+    ) -> Dict:
+        """Analyze campaign and provide strategy recommendations"""
+        prompt = CAMPAIGN_STRATEGIST_PROMPT.format(
+            campaign_name=campaign_name,
+            description=description,
+            target_audience=target_audience,
+            goals=goals,
+            brand_name=brand_name,
+            target_language=target_language,
+            target_platforms=", ".join(target_platforms) if target_platforms else "All",
+            cultural_context=cultural_context or "None",
+        )
+
+        messages = [
+            {"role": "system", "content": "You are an elite Influencer Strategist. Analyze the brief and provide a comprehensive strategy."},
+            {"role": "user", "content": prompt},
+        ]
+
+        # Reuse the schema from chat_stream but maybe simpler? 
+        # Actually the frontend ResultsVisualizer for 'campaign' expects specific fields.
+        # Let's look at ResultsVisualizer.tsx if possible, or use a broad schema.
+        # For now, I'll use a schema that includes the core playbook fields.
+        
+        json_schema = {
+            "type": "object",
+            "properties": {
+                "strategy_playbook": {
+                    "type": "object",
+                    "properties": {
+                        "strategy_brief": {"type": "object"},
+                        "creator_mix": {"type": "array", "items": {"type": "object"}},
+                        "content_playbook": {"type": "object"},
+                        "timeline_and_sequencing": {"type": "object"},
+                        "measurement_plan": {"type": "object"},
+                        "scripts": {"type": "array", "items": {"type": "object"}},
+                    }
+                }
+            },
+            "required": ["strategy_playbook"]
+        }
+
+        result = await llm_service.chat_completion_json(
+            messages=messages,
+            json_schema=json_schema,
+            temperature=0.7
+        )
+        return result
+
+
+campaign_ai = CampaignAI()
+
+
+@celery_app.task(name="tasks.campaign_analysis")
+def analyze_campaign_async(
+    campaign_name: str,
+    description: str,
+    target_audience: str,
+    goals: str,
+    brand_name: str,
+    target_language: str = "English",
+    target_platforms: List[str] = ["Instagram Reels"],
+    cultural_context: Optional[str] = None,
+) -> Dict:
+    """Celery background task for campaign analysis"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(
+            campaign_ai.analyze_campaign(
+                campaign_name,
+                description,
+                target_audience,
+                goals,
+                brand_name,
+                target_language,
+                target_platforms,
+                cultural_context,
+            )
+        )
+    finally:
+        loop.close()

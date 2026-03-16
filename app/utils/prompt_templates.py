@@ -60,7 +60,7 @@ Provide:
 - Platform-fit edits (YouTube vs Reels vs Shorts)
 - Brand safety + claims checks (flags for risks)
 - Suggested rewrites: “safe”, “bolder”, and “shorter” versions.
-- Automated Checks list: provide a strict true/false for the following safety criteria: Brand safety checks, On-screen CTA visuals, Product description accuracy, Face on screen, People-first language, Authentic video environment, No negative phrasing, No mention of competitors.
+- Automated Checks list: provide a strict true/false for the following safety criteria: Brand safety checks, On-screen CTA visuals, Product description accuracy, People-first language, No negative phrasing, No mention of competitors.
   For EACH check, you MUST provide:
    * 'details': A 1-sentence summary of the result.
    * 'reasoning': A deep-dive analysis directly quoting the script to explain *why* the check passed or failed.
@@ -97,17 +97,14 @@ VIDEO METADATA:
 Duration: {video_duration} seconds
 Resolution: {video_resolution}
 
-Analyze the video for:
-1. Visual Quality (0-1): Lighting, framing, production quality
-2. Audio Quality (0-1): Clarity, background noise, music balance
-3. Brand Alignment (0-1): Does it match campaign goals and brand tone?
-4. Compliance & Disclosures (0-1): Follows do's/don'ts and required assets/disclosures?
-
-Provide:
-- "Ready to publish" score + risk flags
-- Pass/fail checklist (brief adherence, key messages, brand tone, required assets, disclosure compliance)
-- Timestamped issues (what’s wrong + where)
-- Fix recommendations (exact edits)
+Analyze the video and provide the following:
+1. publish_score (0-100): Overall rating of readiness.
+2. risk_level ("Low", "Moderate", "High"): Based on compliance risks.
+3. pass_fail_checklist: Evaluate brief_adherence, key_messages, brand_tone, required_assets, and disclosure_compliance. Give a "Pass" or "Fail" status and notes for each.
+4. risk_flags: List any high-risk compliance or brand safety violations.
+5. script_extraction: Provide the exact spoken text/transcript as a single string.
+6. advanced_analysis: Evaluate "cta_effectiveness" and "thumbnail_psychology".
+7. timestamped_issues: List any timestamped issues with severity ("Critical", "High", "Medium", "Low") and a short text issue.
 
 CRITICAL LINGUISTIC INSTRUCTION:
 If the Target Language is "Hinglish", you MUST generate your feedback, scripts, and playbooks in a natural mix of Romanized Hindi and English (e.g., "Yeh campaign bohot fresh lag raha hai, target audience definitely connect karegi"). Do NOT use formal 'Shuddh Hindi'. Ensure all output text values match the target language and cultural context, but KEEP THE JSON SCHEMA KEYS IN ENGLISH.

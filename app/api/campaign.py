@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.campaign_ai import CampaignAI
+from app.services.campaign_ai import CampaignAI, analyze_campaign_async
 
 router = APIRouter()
 campaign_service = CampaignAI()
@@ -85,6 +85,17 @@ class ComprehensiveCampaignBrief(BaseModel):
     currency: Optional[str] = "USD"
 
 
+class CampaignRequest(BaseModel):
+    campaign_name: str
+    description: str
+    target_audience: str
+    goals: str
+    brand_name: str
+    target_language: str = "English"
+    target_platforms: List[str] = ["Instagram Reels"]
+    cultural_context: Optional[str] = None
+
+
 @router.post("/chat")
 async def generate_strategy(request: ComprehensiveCampaignBrief):
     """Instantly generates an agency-grade Influencer Strategy Playbook from 9-part brief"""
@@ -108,5 +119,24 @@ async def generate_strategy(request: ComprehensiveCampaignBrief):
             messages=dict_messages
         )
         return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analyze")
+async def analyze_campaign(request: CampaignRequest):
+    """Analyze campaign in background"""
+    try:
+        task = analyze_campaign_async.delay(
+            campaign_name=request.campaign_name,
+            description=request.description,
+            target_audience=request.target_audience,
+            goals=request.goals,
+            brand_name=request.brand_name,
+            target_language=request.target_language,
+            target_platforms=request.target_platforms,
+            cultural_context=request.cultural_context,
+        )
+        return {"task_id": task.id, "status": "Processing"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

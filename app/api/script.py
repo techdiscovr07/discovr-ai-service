@@ -6,7 +6,7 @@ from typing import Dict, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.services.script_ai import script_ai
+from app.services.script_ai import review_script_async
 
 router = APIRouter()
 
@@ -21,11 +21,11 @@ class ScriptReviewRequest(BaseModel):
 async def review_script(request: ScriptReviewRequest):
     """Review creator script and provide detailed feedback"""
     try:
-        result = await script_ai.review_script(
+        task = review_script_async.delay(
             script_content=request.script_content,
             campaign_brief=request.campaign_brief,
             brand_guidelines=request.brand_guidelines,
         )
-        return result
+        return {"task_id": task.id, "status": "Processing"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

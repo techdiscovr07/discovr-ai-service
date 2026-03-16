@@ -5,7 +5,7 @@ Discovr AI Service - FastAPI application
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import campaign, script, video, tasks, helper, brand_safety
+from app.api import campaign, script, video, brand_safety, tasks, helper
 
 app = FastAPI(
     title="Discovr AI Service",

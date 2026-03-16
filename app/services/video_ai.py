@@ -1,143 +1,240 @@
-"""
-Video Review AI Service
-"""
 import os
+import asyncio
+import base64
 from typing import Dict, Optional
 
+from app.celery_app import celery_app
 from app.services.llm_service import llm_service
-from app.utils.prompt_templates import VIDEO_REVIEW_PROMPT
-from app.utils.video_processor import VideoProcessor
-
 
 class VideoAI:
-    """AI service for video review and analysis"""
-    
-    def __init__(self):
-        self.video_processor = VideoProcessor()
-    
+    """Enhanced AI service for end-to-end multi-modal video review using Gemini 3.1 Flash"""
+
     async def review_video(
         self,
         video_url: str,
         campaign_brief: Dict,
         script_content: Optional[str] = None,
+        target_language: str = "English",
+        target_platforms: list[str] = ["TikTok", "Instagram Reels"],
+        cultural_context: Optional[str] = None,
+        caption: Optional[str] = None,
+        brand_guidelines: Optional[str] = None,
+        platform_policies: Optional[str] = None,
+        thumbnail_url: Optional[str] = None,
     ) -> Dict:
         """
-        Review creator video and provide comprehensive analysis
-        
-        Returns:
-            {
-                "overall_score": 0.88,
-                "visual_quality": 0.9,
-                "audio_quality": 0.85,
-                "brand_alignment": 0.9,
-                "compliance": 0.85,
-                "engagement": 0.87,
-                "transcript": "...",
-                "timeline_analysis": [
-                    {"timestamp": "0:05", "type": "issue", "description": "...", "suggestion": "..."}
-                ],
-                "key_moments": [...],
-                "feedback": "..."
-            }
+        Review locally saved raw video using Gemini Multi-Modal capabilities.
+        Extracts script, timeline issues, UI scorecard, and pass/fail metrics. 
         """
-        # Download and process video
-        video_path = await self.video_processor.download_video(video_url)
         
+        # Clean local file path from `file:///path` format
+        local_path = video_url.replace("file://", "")
+        if not os.path.exists(local_path):
+            raise FileNotFoundError(f"Video file not found at {local_path}")
+
         try:
-            # Extract frames, audio, transcript
-            frames = await self.video_processor.extract_key_frames(video_path)
-            audio_transcript = await self.video_processor.extract_transcript(video_path)
-            video_metadata = await self.video_processor.get_metadata(video_path)
-            
-            # Prepare analysis prompt
-            prompt = VIDEO_REVIEW_PROMPT.format(
-                campaign_name=campaign_brief.get("name", ""),
-                campaign_description=campaign_brief.get("description", ""),
-                video_title=campaign_brief.get("video_title", ""),
-                primary_focus=campaign_brief.get("primary_focus", ""),
-                dos=campaign_brief.get("dos", ""),
-                donts=campaign_brief.get("donts", ""),
-                script_content=script_content or "Not provided",
-                transcript=audio_transcript or "Could not extract transcript",
-                video_duration=video_metadata.get("duration", 0),
-                video_resolution=f"{video_metadata.get('width', 0)}x{video_metadata.get('height', 0)}",
+            # 1. Read the raw mp4 file and encode to base64
+            with open(local_path, "rb") as video_file:
+                video_b64 = base64.b64encode(video_file.read()).decode("utf-8")
+
+            thumbnail_b64 = None
+            if thumbnail_url:
+                local_thumb_path = thumbnail_url.replace("file://", "")
+                if os.path.exists(local_thumb_path):
+                    with open(local_thumb_path, "rb") as thumb_file:
+                        thumbnail_b64 = base64.b64encode(thumb_file.read()).decode("utf-8")
+                
+            # 2. Prepare the exhaustive system prompt
+            system_prompt = (
+                "You are an elite Brand Compliance Officer and Senior Creative Director auditing a Draft Video. "
+                "You have been provided with the raw video file and the brand's campaign brief. "
+                "Your job is to perform a rigorous Multi-Layer Content Audit.\n\n"
+                "CRITICAL DIRECTIVES:\n"
+                "1. SCRIPT EXTRACTION: Listen to the audio and transcribe the speaker perfectly.\n"
+                "2. VISUAL/AUDIO TIMELINE: Pinpoint exact timestamps (e.g. '00:07', '00:15') where errors, missing disclosures, or brilliant hooks occur.\n"
+                "4. EXACT FIXES: Do not give generic advice. Give exact replacement text/actions for any issue found.\n"
+                "5. HUMAN IN LOOP: If you find critical compliance issues, misleading claims, or severe brand safety risks, set requires_manual_review to true and list the reasons.\n"
+                f"--- CAMPAIGN BRIEF ---\n"
+                f"Name: {campaign_brief.get('name', '')}\n"
+                f"Target Platforms: {', '.join(target_platforms) if target_platforms else 'Any'}\n"
+                f"Primary Focus: {campaign_brief.get('primary_focus', '')}\n"
+                f"Required Do's: {campaign_brief.get('dos', '')}\n"
+                f"Prohibited Dont's: {campaign_brief.get('donts', '')}\n"
             )
             
+            if caption:
+                system_prompt += f"\n--- PROVIDED CAPTION ---\n{caption}\n"
+            if brand_guidelines:
+                system_prompt += f"\n--- BRAND GUIDELINES ---\n{brand_guidelines}\n"
+            if platform_policies:
+                system_prompt += f"\n--- PLATFORM POLICIES ---\n{platform_policies}\n"
+
+            # 3. Construct Multi-Modal Payload for OpenRouter (Gemini Support)
+            user_content = []
+            
+            # Put video FIRST
+            user_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:video/mp4;base64,{video_b64}"
+                }
+            })
+            
+            # Add thumbnail if exists
+            if thumbnail_b64:
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{thumbnail_b64}"
+                    }
+                })
+
+            user_content.append({
+                "type": "text", 
+                "text": f"{system_prompt}\n\nPlease strictly evaluate the attached video content according to these parameters."
+            })
+
             messages = [
-                {
-                    "role": "system",
-                    "content": "You are an expert video content reviewer. Analyze videos for visual quality, audio quality, brand alignment, compliance, and engagement. Provide specific feedback with timestamps.",
-                },
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": user_content}
             ]
-            
-            # For video analysis, we might want to use vision-capable models
-            # If using GPT-4 Vision or similar, include frame descriptions
-            if frames:
-                frame_descriptions = await self._describe_frames(frames)
-                prompt += f"\n\nKey Frame Descriptions:\n{frame_descriptions}"
-            
+
+            # 4. Strict Exact JSON Schema requested by User
             json_schema = {
                 "type": "object",
                 "properties": {
-                    "overall_score": {"type": "number"},
-                    "visual_quality": {"type": "number"},
-                    "audio_quality": {"type": "number"},
-                    "brand_alignment": {"type": "number"},
-                    "compliance": {"type": "number"},
-                    "engagement": {"type": "number"},
-                    "transcript": {"type": "string"},
-                    "timeline_analysis": {
+                    "script_extraction": {
+                        "type": "string",
+                        "description": "Exact transcription of spoken words in the video"
+                    },
+                    "pass_fail_checklist": {
+                        "type": "object",
+                        "properties": {
+                            "brief_adherence": {
+                                "type": "object",
+                                "properties": {"status": {"type": "string", "enum": ["Pass", "Fail"]}, "notes": {"type": "string"}}
+                            },
+                            "key_messages": {
+                                "type": "object",
+                                "properties": {"status": {"type": "string", "enum": ["Pass", "Fail"]}, "notes": {"type": "string"}}
+                            },
+                            "brand_tone": {
+                                "type": "object",
+                                "properties": {"status": {"type": "string", "enum": ["Pass", "Fail"]}, "notes": {"type": "string"}}
+                            },
+                            "required_assets": {
+                                "type": "object",
+                                "properties": {"status": {"type": "string", "enum": ["Pass", "Fail"]}, "notes": {"type": "string"}}
+                            },
+                            "disclosure_compliance": {
+                                "type": "object",
+                                "properties": {"status": {"type": "string", "enum": ["Pass", "Fail"]}, "notes": {"type": "string"}}
+                            }
+                        }
+                    },
+                    "timestamped_issues": {
                         "type": "array",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "timestamp": {"type": "string"},
-                                "type": {"type": "string", "enum": ["issue", "strength", "suggestion"]},
-                                "description": {"type": "string"},
-                                "suggestion": {"type": "string"},
-                                "severity": {"type": "string", "enum": ["critical", "major", "minor"]},
-                            },
-                        },
+                                "timestamp": {"type": "string", "description": "e.g., 00:12"},
+                                "issue": {"type": "string"},
+                                "severity": {"type": "string", "enum": ["Low", "Medium", "High", "Critical"]}
+                            }
+                        }
                     },
-                    "key_moments": {
+                    "risk_flags": {
+                        "type": "array",
+                        "items": {"type": "string", "description": "High level risk flags like competitor mentions or compliance gaps"}
+                    },
+                    "human_in_loop": {
+                        "type": "object",
+                        "properties": {
+                            "requires_manual_review": {"type": "boolean"},
+                            "manual_review_reasons": {
+                                "type": "array",
+                                "items": {"type": "string"}
+                            }
+                        }
+                    },
+                    "exact_fixes": {
                         "type": "array",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "timestamp": {"type": "string"},
-                                "description": {"type": "string"},
-                                "significance": {"type": "string"},
-                            },
-                        },
+                                "original": {"type": "string", "description": "The flawed text or action"},
+                                "replacement": {"type": "string", "description": "Exact replacement text or explicit edit instruction"}
+                            }
+                        }
                     },
-                    "feedback": {"type": "string"},
-                    "recommendations": {"type": "array", "items": {"type": "string"}},
+                    "publish_score": {
+                        "type": "integer",
+                        "description": "Overall score 0-100"
+                    },
+                    "risk_level": {
+                        "type": "string",
+                        "enum": ["Low", "Moderate", "High"]
+                    },
+                    "advanced_analysis": {
+                        "type": "object",
+                        "properties": {
+                            "cta_effectiveness": {"type": "string"},
+                            "thumbnail_psychology": {"type": "string"}
+                        }
+                    }
                 },
-                "required": ["overall_score", "visual_quality", "audio_quality", "brand_alignment", "compliance"],
+                "required": [
+                    "script_extraction", "pass_fail_checklist", "timestamped_issues", 
+                    "exact_fixes", "publish_score", "risk_level", "risk_flags", "human_in_loop", "advanced_analysis"
+                ]
             }
-            
+
+            # 5. Call LLM Service
             result = await llm_service.chat_completion_json(
                 messages=messages,
                 json_schema=json_schema,
-                temperature=0.3,
+                temperature=0.1,  # Strictness for Auditing
+                model_override="google/gemini-3.1-flash-lite-preview",
             )
-            
-            # Add video metadata
-            result["video_metadata"] = video_metadata
-            
+
             return result
-            
+
         finally:
-            # Cleanup downloaded video
-            if os.path.exists(video_path):
-                os.remove(video_path)
-    
-    async def _describe_frames(self, frames: list) -> str:
-        """Describe extracted frames (can use vision model if available)"""
-        # For now, return placeholder
-        # In production, use GPT-4 Vision or similar to describe frames
-        return "Frame analysis available"
+            # We don't delete the local video yet so the frontend can potentially stream it
+            pass
 
 
 video_ai = VideoAI()
+
+@celery_app.task(name="tasks.video_review")
+def review_video_async(
+    video_url: str,
+    campaign_brief: Dict,
+    script_content: Optional[str] = None,
+    target_language: str = "English",
+    target_platforms: list[str] = ["Instagram Reels"],
+    cultural_context: Optional[str] = None,
+    caption: Optional[str] = None,
+    brand_guidelines: Optional[str] = None,
+    platform_policies: Optional[str] = None,
+    thumbnail_url: Optional[str] = None,
+) -> Dict:
+    """Celery background task for multi-modal video review"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(
+            video_ai.review_video(
+                video_url,
+                campaign_brief,
+                script_content,
+                target_language,
+                target_platforms,
+                cultural_context,
+                caption,
+                brand_guidelines,
+                platform_policies,
+                thumbnail_url,
+            )
+        )
+    finally:
+        loop.close()
