@@ -1,24 +1,30 @@
 """
 Script Review AI Service
 """
-from typing import Dict, Optional
 
+from typing import Dict, Optional
+import asyncio
+
+from app.celery_app import celery_app
 from app.services.llm_service import llm_service
 from app.utils.prompt_templates import SCRIPT_REVIEW_PROMPT
 
 
 class ScriptAI:
     """AI service for script review and analysis"""
-    
+
     async def review_script(
         self,
         script_content: str,
         campaign_brief: Dict,
         brand_guidelines: Optional[str] = None,
+        target_language: str = "English",
+        target_platforms: list[str] = ["Instagram Reels"],
+        cultural_context: Optional[str] = None,
     ) -> Dict:
         """
         Review creator script and provide detailed feedback
-        
+
         Returns:
             {
                 "overall_score": 0.82,
@@ -42,61 +48,187 @@ class ScriptAI:
             donts=campaign_brief.get("donts", ""),
             cta=campaign_brief.get("cta", ""),
             brand_guidelines=brand_guidelines or "Standard brand guidelines apply",
+            target_language=target_language,
+            target_platforms=(
+                ", ".join(target_platforms) if target_platforms else "All applicable platforms"
+            ),
+            cultural_context=cultural_context or "None specified",
         )
-        
+
         messages = [
             {
                 "role": "system",
-                "content": "You are an expert content reviewer specializing in video scripts. Evaluate scripts for brand alignment, compliance, quality, and engagement. Provide specific, actionable feedback.",
+                "content": "You are a top-tier Brand Strategist and strict FTC Compliance Officer reviewing creator scripts. Provide detailed Chain-of-Thought reasoning before scoring. Generate actionable feedback and highly creative platform-specific variants.",
             },
             {"role": "user", "content": prompt},
         ]
-        
+
         json_schema = {
             "type": "object",
             "properties": {
-                "overall_score": {"type": "number", "description": "Overall score 0-1"},
-                "brand_fit_score": {"type": "number", "description": "Brand alignment 0-1"},
-                "compliance_score": {"type": "number", "description": "Compliance with guidelines 0-1"},
-                "quality_score": {"type": "number", "description": "Script quality 0-1"},
-                "engagement_score": {"type": "number", "description": "Engagement potential 0-1"},
+                "reasoning": {
+                    "type": "string",
+                    "description": "Write a highly detailed, step-by-step internal monologue analyzing the script against the brief before assigning any scores.",
+                },
+                "overall_score": {
+                    "type": "integer",
+                    "description": "Overall script quality score from 0 to 100",
+                    "minimum": 0,
+                    "maximum": 100,
+                },
+                "brand_fit_score": {
+                    "type": "integer",
+                    "description": "Brand fit score from 0 to 100",
+                    "minimum": 0,
+                    "maximum": 100,
+                },
+                "compliance_score": {
+                    "type": "integer",
+                    "description": "Compliance score from 0 to 100",
+                    "minimum": 0,
+                    "maximum": 100,
+                },
+                "quality_score": {
+                    "type": "integer",
+                    "description": "Writing quality and engagement score from 0 to 100",
+                    "minimum": 0,
+                    "maximum": 100,
+                },
+                "hook_pacing_cta_scores": {
+                    "type": "object",
+                    "properties": {
+                        "hook_strength": {"type": "number"},
+                        "pacing": {"type": "number"},
+                        "cta_clarity": {"type": "number"},
+                    },
+                },
                 "feedback": {"type": "string", "description": "Overall feedback summary"},
-                "suggestions": {
+                "line_by_line_feedback": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "type": {"type": "string", "enum": ["improvement", "addition", "removal"]},
-                            "suggestion": {"type": "string"},
-                            "reason": {"type": "string"},
-                            "priority": {"type": "string", "enum": ["high", "medium", "low"]},
-                        },
-                    },
-                },
-                "issues": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "category": {"type": "string"},
+                            "original_text": {"type": "string"},
                             "issue": {"type": "string"},
-                            "severity": {"type": "string", "enum": ["critical", "major", "minor"]},
                             "suggestion": {"type": "string"},
+                            "aspect": {
+                                "type": "string",
+                                "enum": ["hook", "pacing", "clarity", "cta", "other"],
+                            },
                         },
                     },
                 },
-                "strengths": {"type": "array", "items": {"type": "string"}},
+                "platform_fit_edits": {
+                    "type": "object",
+                    "properties": {
+                        "youtube_longform": {
+                            "type": "string",
+                            "description": "Edits/tips for YouTube",
+                        },
+                        "reels": {
+                            "type": "string",
+                            "description": "Edits/tips for Instagram Reels",
+                        },
+                        "shorts": {
+                            "type": "string",
+                            "description": "Edits/tips for YouTube Shorts",
+                        },
+                    },
+                },
+                "platform_variants": {
+                    "type": "object",
+                    "properties": {
+                        "safe": {
+                            "type": "string",
+                            "description": "A very safe, compliance-first rewrite",
+                        },
+                        "bolder": {
+                            "type": "string",
+                            "description": "An edgier, high-energy hook and pacing",
+                        },
+                        "shorter": {
+                            "type": "string",
+                            "description": "Trimmed down heavily for short-form platforms (under 15s)",
+                        },
+                    },
+                },
+                "brand_safety_issues": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "disallowed_claim_or_competitor": {"type": "string"},
+                            "explanation": {"type": "string"},
+                            "recommended_fix": {"type": "string"},
+                        },
+                    },
+                },
+                "automated_checks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "passed": {"type": "boolean"},
+                            "details": {"type": "string"},
+                            "reasoning": {"type": "string"},
+                            "recommendation": {"type": "string"},
+                        },
+                        "required": ["title", "passed", "details", "reasoning", "recommendation"],
+                    },
+                },
             },
-            "required": ["overall_score", "brand_fit_score", "compliance_score", "quality_score", "feedback"],
+            "required": [
+                "reasoning",
+                "overall_score",
+                "brand_fit_score",
+                "compliance_score",
+                "quality_score",
+                "hook_pacing_cta_scores",
+                "feedback",
+                "line_by_line_feedback",
+                "platform_fit_edits",
+                "platform_variants",
+                "brand_safety_issues",
+                "automated_checks",
+            ],
         }
-        
+
         result = await llm_service.chat_completion_json(
             messages=messages,
             json_schema=json_schema,
-            temperature=0.3,  # Lower temperature for consistent scoring
+            temperature=0.4,  # Lowered for stricter adherence + reasoning stability
         )
-        
+
         return result
 
 
 script_ai = ScriptAI()
+
+
+@celery_app.task(name="tasks.script_review")
+def review_script_async(
+    script_content: str,
+    campaign_brief: Dict,
+    brand_guidelines: Optional[str] = None,
+    target_language: str = "English",
+    target_platforms: list[str] = ["Instagram Reels"],
+    cultural_context: Optional[str] = None,
+) -> Dict:
+    """Celery background task for script review"""
+    # Create new event loop for async LLM call in this worker thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(
+            script_ai.review_script(
+                script_content,
+                campaign_brief,
+                brand_guidelines,
+                target_language,
+                target_platforms,
+                cultural_context,
+            )
+        )
+    finally:
+        loop.close()

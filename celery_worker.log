@@ -1,0 +1,128 @@
+ 
+ -------------- celery@Aryans-MacBook-Pro-2.local v5.6.2 (recovery)
+--- ***** ----- 
+-- ******* ---- macOS-26.3.1-x86_64-i386-64bit-Mach-O 2026-03-16 16:52:57
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         discovr_ai_tasks:0x10ed23620
+- ** ---------- .> transport:   redis://localhost:6379/1
+- ** ---------- .> results:     redis://localhost:6379/2
+- *** --- * --- .> concurrency: 2 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . tasks.brand_safety_evaluation
+  . tasks.campaign_analysis
+  . tasks.creator_audit
+  . tasks.script_review
+  . tasks.video_review
+
+[2026-03-16 16:52:57,316: INFO/MainProcess] Connected to redis://localhost:6379/1
+[2026-03-16 16:52:57,321: INFO/MainProcess] mingle: searching for neighbors
+[2026-03-16 16:52:58,332: INFO/MainProcess] mingle: all alone
+[2026-03-16 16:52:58,367: INFO/MainProcess] celery@Aryans-MacBook-Pro-2.local ready.
+[2026-03-16 17:14:24,747: INFO/MainProcess] Task tasks.brand_safety_evaluation[309c4fe7-da6d-4e33-bba5-537c9b2a0544] received
+[2026-03-16 17:14:24,778: ERROR/ForkPoolWorker-2] Task tasks.brand_safety_evaluation[309c4fe7-da6d-4e33-bba5-537c9b2a0544] raised unexpected: TypeError("LLMService.chat_completion_json() got an unexpected keyword argument 'model_override'")
+Traceback (most recent call last):
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/venv/lib/python3.13/site-packages/celery/app/trace.py", line 479, in trace_task
+    R = retval = fun(*args, **kwargs)
+                 ~~~^^^^^^^^^^^^^^^^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/venv/lib/python3.13/site-packages/celery/app/trace.py", line 779, in __protected_call__
+    return self.run(*args, **kwargs)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/app/services/brand_safety_ai.py", line 192, in evaluate_brand_safety_async
+    return loop.run_until_complete(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        brand_safety_ai.evaluate_campaign(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 721, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/app/services/brand_safety_ai.py", line 166, in evaluate_campaign
+    result = await llm_service.chat_completion_json(
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        messages=messages,
+        ^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        model_override="google/gemini-3.1-flash-lite-preview",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+TypeError: LLMService.chat_completion_json() got an unexpected keyword argument 'model_override'
+[2026-03-16 17:15:10,776: INFO/MainProcess] Task tasks.brand_safety_evaluation[e0e710aa-86a0-4659-bf09-0ed3fe5f37ec] received
+[2026-03-16 17:15:10,780: ERROR/ForkPoolWorker-2] Task tasks.brand_safety_evaluation[e0e710aa-86a0-4659-bf09-0ed3fe5f37ec] raised unexpected: TypeError("LLMService.chat_completion_json() got an unexpected keyword argument 'model_override'")
+Traceback (most recent call last):
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/venv/lib/python3.13/site-packages/celery/app/trace.py", line 479, in trace_task
+    R = retval = fun(*args, **kwargs)
+                 ~~~^^^^^^^^^^^^^^^^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/venv/lib/python3.13/site-packages/celery/app/trace.py", line 779, in __protected_call__
+    return self.run(*args, **kwargs)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/app/services/brand_safety_ai.py", line 192, in evaluate_brand_safety_async
+    return loop.run_until_complete(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        brand_safety_ai.evaluate_campaign(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 721, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/app/services/brand_safety_ai.py", line 166, in evaluate_campaign
+    result = await llm_service.chat_completion_json(
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        messages=messages,
+        ^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        model_override="google/gemini-3.1-flash-lite-preview",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+TypeError: LLMService.chat_completion_json() got an unexpected keyword argument 'model_override'
+[2026-03-16 17:15:51,690: INFO/MainProcess] Task tasks.brand_safety_evaluation[bc263656-ea4f-40a9-b94d-0007d815426f] received
+[2026-03-16 17:15:51,694: ERROR/ForkPoolWorker-2] Task tasks.brand_safety_evaluation[bc263656-ea4f-40a9-b94d-0007d815426f] raised unexpected: TypeError("LLMService.chat_completion_json() got an unexpected keyword argument 'model_override'")
+Traceback (most recent call last):
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/venv/lib/python3.13/site-packages/celery/app/trace.py", line 479, in trace_task
+    R = retval = fun(*args, **kwargs)
+                 ~~~^^^^^^^^^^^^^^^^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/venv/lib/python3.13/site-packages/celery/app/trace.py", line 779, in __protected_call__
+    return self.run(*args, **kwargs)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/app/services/brand_safety_ai.py", line 192, in evaluate_brand_safety_async
+    return loop.run_until_complete(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        brand_safety_ai.evaluate_campaign(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 721, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/apple/Desktop/Discovr/discovr-ai-service/app/services/brand_safety_ai.py", line 166, in evaluate_campaign
+    result = await llm_service.chat_completion_json(
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        messages=messages,
+        ^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        model_override="google/gemini-3.1-flash-lite-preview",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+TypeError: LLMService.chat_completion_json() got an unexpected keyword argument 'model_override'
+
+worker: Warm shutdown (MainProcess)

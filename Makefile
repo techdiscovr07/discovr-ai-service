@@ -9,6 +9,12 @@ dev:
 run:
 	uvicorn app.main:app --reload --port 8000
 
+worker:
+	celery -A app.celery_app worker --loglevel=info
+
+run-all:
+	(trap 'kill 0' SIGINT; uvicorn app.main:app --reload --port 8000 & celery -A app.celery_app worker --loglevel=info)
+
 test:
 	pytest
 

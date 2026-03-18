@@ -1,0 +1,33 @@
+ 
+ -------------- celery@Aryans-MacBook-Pro-2.local v5.6.2 (recovery)
+--- ***** ----- 
+-- ******* ---- macOS-26.3.1-x86_64-i386-64bit-Mach-O 2026-03-15 01:45:04
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         discovr_ai_tasks:0x10245b380
+- ** ---------- .> transport:   redis://localhost:6379/1
+- ** ---------- .> results:     redis://localhost:6379/2
+- *** --- * --- .> concurrency: 2 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . tasks.brand_safety_evaluation
+  . tasks.script_review
+  . tasks.video_review
+
+[2026-03-15 01:45:04,584: INFO/MainProcess] Connected to redis://localhost:6379/1
+[2026-03-15 01:45:04,588: INFO/MainProcess] mingle: searching for neighbors
+[2026-03-15 01:45:05,599: INFO/MainProcess] mingle: all alone
+[2026-03-15 01:45:05,629: INFO/MainProcess] celery@Aryans-MacBook-Pro-2.local ready.
+[2026-03-15 01:45:34,482: INFO/MainProcess] Task tasks.brand_safety_evaluation[a51f10c8-2350-4ffc-87b4-8ca106c3e57a] received
+[2026-03-15 01:45:34,497: INFO/ForkPoolWorker-2] Starting OpenRouter API call for model google/gemini-3.1-flash-lite-preview...
+[2026-03-15 01:46:36,671: INFO/ForkPoolWorker-2] Starting OpenRouter API call for model google/gemini-3.1-flash-lite-preview...
+[2026-03-15 01:46:38,384: INFO/ForkPoolWorker-2] HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-03-15 01:46:39,241: INFO/ForkPoolWorker-2] OpenRouter API call finished in 2.57 seconds.
+[2026-03-15 01:46:39,243: INFO/ForkPoolWorker-2] Task tasks.brand_safety_evaluation[a51f10c8-2350-4ffc-87b4-8ca106c3e57a] succeeded in 64.75867301097605s: {'text_risk': {'text_risk_score': 60, 'identified_risks': ['Unsubstantiated medical claim', 'Misleading superlative'], 'notes': 'The claim that the product \'cured\' acne overnight is a medical claim that is likely false and violates advertising standards regarding health claims.'}, 'brand_policy': {'brand_violation_score': 50, 'violations': ['Banned keyword: cured'], 'notes': 'The script explicitly uses the banned keyword \'cured\', which is strictly prohibited by the brand policy.'}, 'video_risk': {'video_risk_score': 100, 'identified_risks': [], 'notes': 'No video content provided for evaluation.'}, 'platform_compliance': {'compliance_score': 70, 'instagram_issues': ['Potential violation of FTC/Instagram guidelines regarding misleading health claims'], 'youtube_issues': [], 'notes': 'While the post uses #Ad, the content of the claim may trigger platform moderation for misleading health information.'}, 'creator_risk': {'creator_risk_score': 80, 'risk_factors': ['Low volatility', 'No history of offensive...', ...}}
+
+worker: Warm shutdown (MainProcess)

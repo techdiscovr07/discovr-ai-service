@@ -1,0 +1,50 @@
+ 
+ -------------- celery@Aryans-MacBook-Pro-2.local v5.6.2 (recovery)
+--- ***** ----- 
+-- ******* ---- macOS-26.3.1-x86_64-i386-64bit-Mach-O 2026-03-15 02:50:57
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         discovr_ai_tasks:0x10f26c440
+- ** ---------- .> transport:   redis://localhost:6379/1
+- ** ---------- .> results:     redis://localhost:6379/2
+- *** --- * --- .> concurrency: 2 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . tasks.brand_safety_evaluation
+  . tasks.creator_audit
+  . tasks.script_review
+  . tasks.video_review
+
+[2026-03-15 02:50:57,264: INFO/MainProcess] Connected to redis://localhost:6379/1
+[2026-03-15 02:50:57,269: INFO/MainProcess] mingle: searching for neighbors
+[2026-03-15 02:50:58,279: INFO/MainProcess] mingle: all alone
+[2026-03-15 02:50:58,314: INFO/MainProcess] celery@Aryans-MacBook-Pro-2.local ready.
+[2026-03-15 02:51:58,188: INFO/MainProcess] Task tasks.creator_audit[58e85049-cad8-4350-be46-810d4cdb2372] received
+[2026-03-15 02:51:59,212: WARNING/ForkPoolWorker-2] Could not extract posts for rahulgandhi. Likely blocked by Instagram login wall.
+[2026-03-15 02:52:02,883: INFO/MainProcess] Task tasks.creator_audit[c27e0e62-c76d-4097-bf13-9c1a0d47b7e7] received
+[2026-03-15 02:52:03,280: INFO/ForkPoolWorker-2] Starting OpenRouter API call for model google/gemini-3.1-flash-lite-preview...
+[2026-03-15 02:52:03,933: WARNING/ForkPoolWorker-1] Could not extract posts for rahulgandhi. Likely blocked by Instagram login wall.
+[2026-03-15 02:52:04,882: INFO/MainProcess] Task tasks.creator_audit[4a1eee03-c6a2-4d1a-99bf-8abf18ea0266] received
+[2026-03-15 02:52:06,015: INFO/ForkPoolWorker-2] HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-03-15 02:52:08,133: INFO/ForkPoolWorker-1] Starting OpenRouter API call for model google/gemini-3.1-flash-lite-preview...
+[2026-03-15 02:52:11,779: INFO/ForkPoolWorker-1] HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-03-15 02:52:11,779: INFO/ForkPoolWorker-2] OpenRouter API call finished in 8.50 seconds.
+[2026-03-15 02:52:11,784: INFO/ForkPoolWorker-2] Task tasks.creator_audit[58e85049-cad8-4350-be46-810d4cdb2372] succeeded in 13.594011831999524s: {'overall_assessment': 'The creator is a high-profile political figure. While the content itself is generally focused on social outreach, community engagement, and human-interest stories, the nature of the creator\'s profession inherently involves political discourse. This makes the creator a high-risk partner for brands seeking to avoid political controversy or polarization, as the audience sentiment is deeply divided along political lines.', 'instagram_analysis': {'historical_safety_score': 50, 'sentiment_analysis': {'positive_percentage': 0, 'negative_percentage': 0, 'neutral_percentage': 100, 'toxic_percentage': 0, 'summary': 'Data unavailable due to private/restricted profile access.'}, 'content_analysis': 'Profile data is private or restricted, preventing a comprehensive audit of historical content.', 'flagged_content': [{...}]}, 'youtube_analysis': {'historical_safety_score': 65, 'sentiment_analysis': {'positive_percentage': 65, 'negative_percentage': 20, 'neutral_percentage': 5, 'toxic_percentage': 10..., ...}}}
+[2026-03-15 02:52:12,868: WARNING/ForkPoolWorker-2] Could not extract posts for rahulgandhi. Likely blocked by Instagram login wall.
+[2026-03-15 02:52:17,042: INFO/ForkPoolWorker-2] Starting OpenRouter API call for model google/gemini-3.1-flash-lite-preview...
+[2026-03-15 02:52:17,433: INFO/ForkPoolWorker-1] OpenRouter API call finished in 9.30 seconds.
+[2026-03-15 02:52:17,438: INFO/ForkPoolWorker-1] Task tasks.creator_audit[c27e0e62-c76d-4097-bf13-9c1a0d47b7e7] succeeded in 14.553407281986438s: {'overall_assessment': 'The creator is a high-profile political figure. While the content itself is generally focused on social outreach, community engagement, and human-interest stories, the nature of the creator\'s profession inherently involves political discourse. This makes the creator a high-risk partner for brands seeking to avoid political controversy or polarization, as the audience sentiment is deeply divided along political lines.', 'instagram_analysis': {'historical_safety_score': 50, 'sentiment_analysis': {'positive_percentage': 0, 'negative_percentage': 0, 'neutral_percentage': 100, 'toxic_percentage': 0, 'summary': 'Data unavailable due to private/restricted profile access.'}, 'content_analysis': 'Profile data is private or restricted, preventing a comprehensive audit of historical content.', 'flagged_content': [{...}]}, 'youtube_analysis': {'historical_safety_score': 65, 'sentiment_analysis': {'positive_percentage': 65, 'negative_percentage': 20, 'neutral_percentage': 5, 'toxic_percentage': 10..., ...}}}
+[2026-03-15 02:52:19,157: INFO/ForkPoolWorker-2] HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-03-15 02:52:21,905: INFO/ForkPoolWorker-2] OpenRouter API call finished in 4.86 seconds.
+[2026-03-15 02:52:21,913: INFO/ForkPoolWorker-2] Task tasks.creator_audit[4a1eee03-c6a2-4d1a-99bf-8abf18ea0266] succeeded in 10.127140928001609s: {'overall_assessment': 'The creator is a high-profile political figure. While the content itself is generally focused on social outreach, community engagement, and human-interest stories, the nature of the creator\'s profession inherently involves political discourse. This makes the creator a high-risk partner for brands seeking to avoid political controversy, as the comment sections are highly polarized and frequently devolve into intense political debates between opposing ideological groups.', 'instagram_analysis': {'historical_safety_score': 50, 'sentiment_analysis': {'positive_percentage': 0, 'negative_percentage': 0, 'neutral_percentage': 100, 'toxic_percentage': 0, 'summary': 'Data unavailable due to private/restricted profile access.'}, 'content_analysis': 'Profile data is private or blocked, preventing a detailed assessment of historical content.', 'flagged_content': [{...}]}, 'youtube_analysis': {'historical_safety_score': 45, 'sentiment_analysis': {'positive_percentage': 65, 'negative_percentage': 1..., ...}}}
+[2026-03-15 02:53:04,432: INFO/MainProcess] Task tasks.creator_audit[7e89b13b-ff83-427e-9b59-a25b2fa898d2] received
+[2026-03-15 02:53:05,025: WARNING/ForkPoolWorker-2] Could not extract posts for mkbhd. Likely blocked by Instagram login wall.
+[2026-03-15 02:53:09,999: INFO/ForkPoolWorker-2] Starting OpenRouter API call for model google/gemini-3.1-flash-lite-preview...
+[2026-03-15 02:53:11,989: INFO/ForkPoolWorker-2] HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-03-15 02:53:13,762: INFO/ForkPoolWorker-2] OpenRouter API call finished in 3.76 seconds.
+[2026-03-15 02:53:13,765: INFO/ForkPoolWorker-2] Task tasks.creator_audit[7e89b13b-ff83-427e-9b59-a25b2fa898d2] succeeded in 9.332178045006003s: {'overall_assessment': 'The creator maintains a high-quality, professional, and brand-safe presence focused on consumer technology reviews. While the audience occasionally engages in minor banter or speculative crypto-related spam in the comments, the creator\'s own content is consistently neutral, informative, and free of controversial or sensitive topics. The brand safety profile is excellent.', 'instagram_analysis': {'historical_safety_score': 95, 'sentiment_analysis': {'positive_percentage': 0, 'negative_percentage': 0, 'neutral_percentage': 100, 'toxic_percentage': 0, 'summary': 'Profile data is private; no public engagement or content available for sentiment analysis.'}, 'content_analysis': 'The Instagram profile is currently private or blocked, preventing a direct audit of historical posts. Based on the creator\'s general reputation, this is likely a standard privacy setting rather than a response to controversy.', 'flagged_content': []}, 'youtube_analysis': {'historical_safety_score': 92, 'sentiment_an...', ...}}

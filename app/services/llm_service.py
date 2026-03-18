@@ -16,15 +16,11 @@ class LLMService:
         self.api_key = settings.openrouter_api_key
         self.base_url = settings.openrouter_base_url
         self.model = settings.model_name
-        self.client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "HTTP-Referer": "https://discovr.ai",
-                "X-Title": "Discovr AI Service",
-            },
-            timeout=60.0,
-        )
+        self._headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "HTTP-Referer": "https://discovr.ai",
+            "X-Title": "Discovr AI Service",
+        }
     
     async def chat_completion(
         self,
@@ -32,6 +28,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         response_format: Optional[Dict] = None,
+        model_override: Optional[str] = None,
     ) -> Dict:
         """
         Send chat completion request to OpenRouter
@@ -46,7 +43,7 @@ class LLMService:
             Response dict with 'content' and 'usage'
         """
         payload = {
-            "model": self.model,
+            "model": model_override if model_override else self.model,
             "messages": messages,
             "temperature": temperature,
         }
@@ -56,29 +53,34 @@ class LLMService:
         
         if response_format:
             payload["response_format"] = response_format
-        
-        response = await self.client.post("/chat/completions", json=payload)
-        import httpx
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            print(f"OpenRouter API Error RESPONSE: {e.response.text}")
-            raise e
-        
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        
-        return {
-            "content": content,
-            "usage": data.get("usage", {}),
-            "model": data.get("model"),
-        }
+            
+        async with httpx.AsyncClient(
+            base_url=self.base_url,
+            headers=self._headers,
+            timeout=180.0,
+        ) as client:
+            response = await client.post("/chat/completions", json=payload)
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                print(f"OpenRouter API Error RESPONSE: {e.response.text}")
+                raise e
+            
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            
+            return {
+                "content": content,
+                "usage": data.get("usage", {}),
+                "model": data.get("model"),
+            }
     
     async def chat_completion_json(
         self,
         messages: List[Dict[str, str]],
         json_schema: Dict,
         temperature: float = 0.3,
+        model_override: Optional[str] = None,
     ) -> Dict:
         """
         Get structured JSON response from LLM
@@ -104,6 +106,7 @@ class LLMService:
             messages=messages,
             temperature=temperature,
             response_format=response_format,
+            model_override=model_override,
         )
         
         # Parse JSON from response
@@ -130,25 +133,30 @@ class LLMService:
             "stream": True,
         }
         
-        async with self.client.stream("POST", "/chat/completions", json=payload) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if line.startswith("data: "):
-                    data = line[6:]
-                    if data == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data)
-                        if "choices" in chunk and chunk["choices"]:
-                            delta = chunk["choices"][0].get("delta", {})
-                            if "content" in delta:
-                                yield delta["content"]
-                    except json.JSONDecodeError:
-                        continue
+        async with httpx.AsyncClient(
+            base_url=self.base_url,
+            headers=self._headers,
+            timeout=180.0,
+        ) as client:
+            async with client.stream("POST", "/chat/completions", json=payload) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            if "choices" in chunk and chunk["choices"]:
+                                delta = chunk["choices"][0].get("delta", {})
+                                if "content" in delta:
+                                    yield delta["content"]
+                        except json.JSONDecodeError:
+                            continue
     
     async def close(self):
         """Close HTTP client"""
-        await self.client.aclose()
+        pass
 
 
 # Singleton instance

@@ -1,148 +1,290 @@
-"""
-Campaign Creation AI Service
-"""
-from typing import Dict, Optional
+from typing import Dict, List, Optional
+import asyncio
+import json
 
+from app.celery_app import celery_app
 from app.services.llm_service import llm_service
-from app.utils.prompt_templates import CAMPAIGN_ANALYSIS_PROMPT
+
+
+from app.utils.prompt_templates import CAMPAIGN_STRATEGIST_PROMPT, SCRIPT_REVIEW_PROMPT
 
 
 class CampaignAI:
-    """AI service for campaign creation assistance"""
-    
+    """Conversational AI service for campaign creation assistance"""
+
+    async def chat_stream(
+        self, messages: List[Dict[str, str]], scraped_data: List[Dict] = None
+    ) -> Dict:
+        """
+        Takes conversation history (form brief) and optional scraped competitor data.
+        Generates the final playbook in ONE shot instead of conversational querying.
+        """
+        system_prompt = (
+            "You are an elite Senior Influencer Strategist AI working at a top-tier global advertising agency. "
+            "You have received a comprehensive 8-part campaign brief from a high-profile brand client containing their core objective, target audience, budget, and creative preferences.\n\n"
+            "CRITICAL DIRECTIVES FOR GENERATION:\n"
+            "1. You do NO CONSULTING. The user has explicitly requested to skip straight to the deliverable. Do not say 'Here is your playbook'. You must generate the final 'strategy_playbook' JSON immediately based on their inputs.\n"
+            "2. Set 'ready' to true permanently.\n"
+            "3. If any field in the playbook is loosely defined by their brief, use your Senior Strategist capabilities to extrapolate safely and intelligently based on the context they provided. Make bold, data-backed assumptions rather than generating generic or tepid advice.\n"
+            "4. Your single goal is to deliver the most detailed, actionable, agency-grade influencer strategy playbook possible, directly mapping their inputs to bespoke, tactical recommendations.\n"
+            "5. Tone: Authoritative, deeply analytical, hyper-tactical, and modern. Use contemporary marketing terminology (e.g., 'CAC', 'ROAS', 'Halo Effect', 'Signal Loss', 'Creator-Led Authenticity') appropriately, but avoid meaningless buzzwords.\n"
+            "6. For the Content Playbook, do not suggest generic ideas like 'show the product'. Suggest specific, nuanced story arcs (e.g., 'A day in the life struggling with [Pain Point] seamlessly solved by [Product] in the final 3 seconds').\n"
+            "7. CRITICAL: You MUST generate EXACTLY 5 complete influencer scripts in the `scripts` array. These scripts MUST be written natively in the Target Language specified by the user. Ensure cultural nuance and platform-appropriate formatting.\n"
+        )
+
+        if scraped_data:
+            system_prompt += f"\nWe scraped the provided competitor URLs and performed a Deep Visual Analysis (via Multi-Modal AI) on their last 10 partnership reels/posts:\n{json.dumps(scraped_data, indent=2)}\n"
+            system_prompt += "You must act as the primary Data Analyst for this scraped data. Scrutinize the captions, tags, and 'deep_visual_analysis' fields to deduce their actual video content, story arcs, and hooks. Build out an exhaustive 'competitor_analysis' array. Be highly specific, cite patterns, and avoid generic info.\n"
+
+        # Format messages for LLM
+        formatted_messages = [{"role": "system", "content": system_prompt}]
+        for msg in messages:
+            formatted_messages.append(msg)
+
+        json_schema = {
+            "type": "object",
+            "properties": {
+                "ready": {
+                    "type": "boolean",
+                    "description": "Always set this to true.",
+                },
+                "strategy_playbook": {
+                    "type": "object",
+                    "properties": {
+                        "strategy_brief": {
+                            "type": "object",
+                            "properties": {
+                                "objective_clarity": {"type": "string"},
+                                "audience_summary": {"type": "string"},
+                                "strategic_angle": {"type": "string"},
+                                "core_messaging_pillars": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "3-5 distinct bullet points"
+                                },
+                                "recommended_formats": {"type": "array", "items": {"type": "string"}},
+                            },
+                        },
+                        "creator_mix": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "tier_split_percentage": {"type": "string"},
+                                    "suggested_categories": {"type": "array", "items": {"type": "string"}},
+                                    "geo_split": {"type": "array", "items": {"type": "string"}},
+                                    "language_split": {"type": "array", "items": {"type": "string"}},
+                                    "suggested_volume": {"type": "string", "description": "e.g., 10 micro + 2 mid"},
+                                    "rationale": {"type": "string"},
+                                },
+                            },
+                            "description": "Array of records to function as a table in the UI",
+                        },
+                        "content_playbook": {
+                            "type": "object",
+                            "properties": {
+                                "hook_frameworks": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "5 example hook styles"
+                                },
+                                "story_arcs": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "e.g., Problem->Agitate->Solution, Before/After, Demo-led"
+                                },
+                                "dos": {"type": "array", "items": {"type": "string"}},
+                                "donts": {"type": "array", "items": {"type": "string"}},
+                                "cta_options": {"type": "array", "items": {"type": "string"}, "description": "Based on funnel stage"},
+                            },
+                        },
+                        "timeline_and_sequencing": {
+                            "type": "object",
+                            "properties": {
+                                "phase_1_tease": {"type": "string"},
+                                "phase_2_burst": {"type": "string"},
+                                "phase_3_reinforcement": {"type": "string"},
+                                "phase_4_always_on": {"type": "string"},
+                                "week_wise_rollout": {"type": "string"},
+                                "volume_per_week": {"type": "string"},
+                                "paid_amplification_timing": {"type": "string"},
+                            },
+                        },
+                        "measurement_plan": {
+                            "type": "object",
+                            "properties": {
+                                "primary_kpi": {"type": "string"},
+                                "secondary_kpis": {"type": "array", "items": {"type": "string"}},
+                                "benchmark_targets": {"type": "string"},
+                                "tracking_method": {"type": "string"},
+                                "attribution_approach": {"type": "string"},
+                                "optimization_triggers": {"type": "string"},
+                                "learning_framework": {"type": "string"},
+                            },
+                        },
+                        "risk_assessment": {
+                            "type": "object",
+                            "properties": {
+                                "execution_risks": {"type": "array", "items": {"type": "string"}},
+                                "messaging_risks": {"type": "array", "items": {"type": "string"}},
+                                "creator_mismatch_risk": {"type": "array", "items": {"type": "string"}},
+                                "platform_dependency_risk": {"type": "array", "items": {"type": "string"}},
+                            },
+                        },
+                        "experiment_framework": {
+                            "type": "object",
+                            "properties": {
+                                "creative_variable_testing": {"type": "string"},
+                                "creator_tier_testing": {"type": "string"},
+                                "hook_testing": {"type": "string"},
+                            },
+                        },
+                        "human_in_loop": {
+                            "type": "object",
+                            "properties": {
+                                "confidence_score": {
+                                    "type": "number",
+                                    "description": "0 to 1 score indicating confidence in this strategy given the inputs"
+                                },
+                                "manual_review_areas": {"type": "array", "items": {"type": "string"}},
+                                "assumptions_made": {"type": "array", "items": {"type": "string"}},
+                            },
+                        },
+                        "scripts": {
+                            "type": "array",
+                            "description": "Exactly 5 complete influencer scripts written in the user's requested target language.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {"type": "string"},
+                                    "target_platform": {"type": "string"},
+                                    "creator_tier": {"type": "string"},
+                                    "visual_hook": {"type": "string"},
+                                    "spoken_script": {"type": "string", "description": "The exact script to be spoken, translated to the target language if required."},
+                                    "captions_or_text_on_screen": {"type": "string"},
+                                    "estimated_duration_seconds": {"type": "number"}
+                                },
+                                "required": ["title", "target_platform", "creator_tier", "visual_hook", "spoken_script", "captions_or_text_on_screen", "estimated_duration_seconds"]
+                            },
+                            "minItems": 5,
+                            "maxItems": 5
+                        },
+                    },
+                    "required": [
+                        "strategy_brief",
+                        "creator_mix",
+                        "content_playbook",
+                        "timeline_and_sequencing",
+                        "measurement_plan",
+                        "risk_assessment",
+                        "experiment_framework",
+                        "human_in_loop",
+                        "scripts"
+                    ],
+                },
+            },
+            "required": ["ready", "strategy_playbook"],
+        }
+
+        result = await llm_service.chat_completion_json(
+            messages=formatted_messages, json_schema=json_schema, temperature=0.7
+        )
+
+        # Enforce rule of returning ready state
+        result["ready"] = True
+        if "chat_reply" not in result:
+            result["chat_reply"] = "Strategy playbook generated successfully."
+
+        return result
+
     async def analyze_campaign(
         self,
         campaign_name: str,
         description: str,
         target_audience: str,
         goals: str,
-        brand_name: Optional[str] = None,
+        brand_name: str,
+        target_language: str = "English",
+        target_platforms: List[str] = ["Instagram Reels"],
+        cultural_context: Optional[str] = None,
     ) -> Dict:
-        """
-        Analyze campaign brief and provide AI suggestions
-        
-        Returns:
-            {
-                "suggestions": [...],
-                "improved_title": "...",
-                "improved_description": "...",
-                "cta_suggestions": [...],
-                "score": 0.85,
-                "strengths": [...],
-                "weaknesses": [...]
-            }
-        """
-        prompt = CAMPAIGN_ANALYSIS_PROMPT.format(
+        """Analyze campaign and provide strategy recommendations"""
+        prompt = CAMPAIGN_STRATEGIST_PROMPT.format(
             campaign_name=campaign_name,
             description=description,
             target_audience=target_audience,
             goals=goals,
-            brand_name=brand_name or "the brand",
+            brand_name=brand_name,
+            target_language=target_language,
+            target_platforms=", ".join(target_platforms) if target_platforms else "All",
+            cultural_context=cultural_context or "None",
         )
-        
+
         messages = [
-            {
-                "role": "system",
-                "content": "You are an expert marketing strategist helping brands create effective campaigns. Provide actionable, specific suggestions.",
-            },
+            {"role": "system", "content": "You are an elite Influencer Strategist. Analyze the brief and provide a comprehensive strategy."},
             {"role": "user", "content": prompt},
         ]
+
+        # Reuse the schema from chat_stream but maybe simpler? 
+        # Actually the frontend ResultsVisualizer for 'campaign' expects specific fields.
+        # Let's look at ResultsVisualizer.tsx if possible, or use a broad schema.
+        # For now, I'll use a schema that includes the core playbook fields.
         
         json_schema = {
             "type": "object",
             "properties": {
-                "score": {"type": "number", "description": "Overall quality score 0-1"},
-                "improved_title": {"type": "string"},
-                "improved_description": {"type": "string"},
-                "cta_suggestions": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-                "suggestions": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "category": {"type": "string"},
-                            "suggestion": {"type": "string"},
-                            "reason": {"type": "string"},
-                        },
-                    },
-                },
-                "strengths": {"type": "array", "items": {"type": "string"}},
-                "weaknesses": {"type": "array", "items": {"type": "string"}},
-            },
-            "required": ["score", "improved_title", "improved_description", "suggestions"],
-            "additionalProperties": False
-        }
-        
-        result = await llm_service.chat_completion_json(
-            messages=messages,
-            json_schema=json_schema,
-            temperature=0.7,
-        )
-        
-        return result
-        
-    async def chat_strategist(
-        self,
-        messages: list,
-        competitor_urls: list = None
-    ) -> Dict:
-        """
-        Handle a chat turn for the Strategist AI.
-        """
-        response_schema = {
-            "type": "object",
-            "properties": {
-                "ready": {"type": "boolean"},
-                "chat_reply": {"type": "string"},
                 "strategy_playbook": {
                     "type": "object",
                     "properties": {
-                        "score": {"type": "number"},
-                        "improved_title": {"type": "string"},
-                        "improved_description": {"type": "string"},
-                        "cta_suggestions": {"type": "array", "items": {"type": "string"}},
-                        "suggestions": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "category": {"type": "string"},
-                                    "suggestion": {"type": "string"},
-                                    "reason": {"type": "string"}
-                                },
-                                "required": ["category", "suggestion", "reason"],
-                                "additionalProperties": False
-                            }
-                        },
-                        "strengths": {"type": "array", "items": {"type": "string"}},
-                        "weaknesses": {"type": "array", "items": {"type": "string"}}
-                    },
-                    "required": [
-                        "score", "improved_title", "improved_description", 
-                        "cta_suggestions", "suggestions", "strengths", "weaknesses"
-                    ],
-                    "additionalProperties": False
+                        "strategy_brief": {"type": "object"},
+                        "creator_mix": {"type": "array", "items": {"type": "object"}},
+                        "content_playbook": {"type": "object"},
+                        "timeline_and_sequencing": {"type": "object"},
+                        "measurement_plan": {"type": "object"},
+                        "scripts": {"type": "array", "items": {"type": "object"}},
+                    }
                 }
             },
-            "required": ["ready", "chat_reply", "strategy_playbook"],
-            "additionalProperties": False
+            "required": ["strategy_playbook"]
         }
-        
-        system_msg = {
-            "role": "system", 
-            "content": "You are a friendly influencer marketing strategist AI. You need to create a complete strategy playbook. If you don't have enough details (like campaign goal and target audience), ask the user follow-up questions in 'chat_reply'. Once you have enough info, set 'ready' to true and fill out 'strategy_playbook'."
-        }
-        
-        full_messages = [system_msg] + messages
-        
+
         result = await llm_service.chat_completion_json(
-            messages=full_messages,
-            json_schema=response_schema,
-            temperature=0.7,
+            messages=messages,
+            json_schema=json_schema,
+            temperature=0.7
         )
         return result
 
+
 campaign_ai = CampaignAI()
+
+
+@celery_app.task(name="tasks.campaign_analysis")
+def analyze_campaign_async(
+    campaign_name: str,
+    description: str,
+    target_audience: str,
+    goals: str,
+    brand_name: str,
+    target_language: str = "English",
+    target_platforms: List[str] = ["Instagram Reels"],
+    cultural_context: Optional[str] = None,
+) -> Dict:
+    """Celery background task for campaign analysis"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(
+            campaign_ai.analyze_campaign(
+                campaign_name,
+                description,
+                target_audience,
+                goals,
+                brand_name,
+                target_language,
+                target_platforms,
+                cultural_context,
+            )
+        )
+    finally:
+        loop.close()

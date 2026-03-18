@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     mongodb_uri: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
     mongodb_database: str = os.getenv("MONGODB_DATABASE", "discovr_ai")
     
+    # Celery Background Tasks
+    celery_broker_url: str = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/1")
+    celery_result_backend: str = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
+    
     # Service Configuration
     port: int = int(os.getenv("PORT", "8000"))
     ai_service_api_key: Optional[str] = None  # For auth with Go backend
